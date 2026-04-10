@@ -1,0 +1,51 @@
+# mcp_any_security.rules — Security rules for SigmaShake MCP tool calls.
+# Technology: mcp | Capability: any
+# Covers: rule injection via inline ALLOW/FORCE, malformed hub submissions,
+# human approval for publishing, and github token exposure in eval payloads.
+
+rule no-eval-inline-allow {
+  enabled true
+  priority 100
+  severity error
+  DENY any
+  IF tool EQUALS "sigmashake_eval" AND input.rules REGEX "(?i)\\bALLOW\\b"
+  MESSAGE "Inline rules containing ALLOW decisions are blocked. An agent could inject an ALLOW rule to override existing DENY rules — this is a rule injection attack. Use stored rules from the hub instead of inline overrides."
+}
+
+rule no-eval-inline-force {
+  enabled true
+  priority 95
+  severity error
+  DENY any
+  IF tool EQUALS "sigmashake_eval" AND input.rules REGEX "(?i)\\bFORCE\\b"
+  MESSAGE "Inline rules containing FORCE decisions are blocked. FORCE rules with SUBSTITUTE can redirect tool behavior — this is a rule injection vector. Use stored rules managed through the hub."
+}
+
+rule no-hub-submit-bad-url {
+  enabled true
+  priority 95
+  severity error
+  DENY any
+  IF tool EQUALS "sigmashake_hub_submit" AND input.repo_url NOT REGEX "^https://github\\.com/[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$"
+  MESSAGE "Hub submission blocked — repo_url must be a valid GitHub HTTPS URL (https://github.com/owner/repo). SSH URLs, non-GitHub hosts, and URLs with trailing paths or fragments are not accepted."
+}
+
+rule no-token-in-eval-input {
+  enabled true
+  priority 95
+  severity error
+  DENY any
+  IF tool EQUALS "sigmashake_eval" AND input.input REGEX "(ghp_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9_]{82}|gho_[a-zA-Z0-9]{36})"
+  OR tool EQUALS "sigmashake_eval" AND input.input REGEX "(sk-[a-zA-Z0-9]{20,}|ant-api[a-zA-Z0-9-]{20,})"
+  MESSAGE "GitHub token or API key detected in eval input. Eval inputs are recorded in the audit log — secrets passed through eval are persisted in plaintext. Pass tokens only to sigmashake_hub_submit, never through eval."
+}
+
+rule ask-hub-submit {
+  enabled true
+  priority 90
+  severity warning
+  ASK any
+  IF tool EQUALS "sigmashake_hub_submit"
+  MESSAGE "Publishing a ruleset to the SigmaShake Hub is a public action that makes rules available to all users. Verify the repo URL, rule contents, and that no secrets are embedded."
+  PROMPT "Is this ruleset ready for public distribution? Confirm: (1) repo_url is correct, (2) rules have been tested locally with 'ssg eval', (3) no secrets or internal paths are embedded in rule messages."
+}

@@ -1,0 +1,54 @@
+# mcp_any_safety.rules — Safety and quality rules for SigmaShake MCP tool calls.
+# Technology: mcp | Capability: any
+# Covers: large audit queries, eval observability, empty eval input,
+# rule_id format enforcement, and unfiltered audit queries.
+
+rule ask-large-audit-query {
+  enabled true
+  priority 75
+  severity warning
+  ASK any
+  IF tool EQUALS "sigmashake_audit" AND input.limit REGEX "^[5-9][0-9]$"
+  OR tool EQUALS "sigmashake_audit" AND input.limit EQUALS "100"
+  MESSAGE "Large audit query (limit >= 50) returns significant data that consumes context tokens. Most debugging tasks are served by the last 10-20 entries."
+  PROMPT "Do you need this many audit records? Start with limit=10 or limit=20 to check if the answer is in recent entries before requesting 50+."
+}
+
+rule ask-eval-empty-input {
+  enabled true
+  priority 70
+  severity warning
+  ASK any
+  IF tool EQUALS "sigmashake_eval" AND input.tool EQUALS ""
+  OR tool EQUALS "sigmashake_eval" AND input.input EQUALS "{}"
+  MESSAGE "Eval called with empty tool name or empty input object. An eval with no tool or empty input will match no conditions and return a vacuous ALLOW — this is almost certainly a bug in the agent's tool call construction."
+  PROMPT "Is the eval input complete? Ensure both 'tool' and 'input' are populated with the actual tool call data to evaluate."
+}
+
+rule force-rule-id-format {
+  enabled true
+  priority 70
+  severity warning
+  FORCE any
+  IF tool EQUALS "sigmashake_rules_get" AND input.rule_id NOT REGEX "^[a-z][a-z0-9-]*[a-z0-9]$"
+  SUBSTITUTE "Rule IDs use kebab-case: lowercase letters, digits, and hyphens only (e.g., 'no-rm-rf', 'ask-sudo-use'). The ID must start with a letter and end with a letter or digit. Reformat the rule_id parameter and retry."
+  MESSAGE "Invalid rule_id format. Rule IDs are kebab-case: lowercase alphanumeric with hyphens, starting with a letter."
+}
+
+rule log-eval-call {
+  enabled true
+  priority 65
+  severity info
+  LOG any
+  IF tool EQUALS "sigmashake_eval"
+  MESSAGE "sigmashake_eval invoked. Every eval call is a governance checkpoint — the tool name and resulting decision are recorded in the audit log for observability."
+}
+
+rule log-audit-no-filter {
+  enabled true
+  priority 60
+  severity info
+  LOG any
+  IF tool EQUALS "sigmashake_audit" AND input.decision EQUALS "" AND input.tool EQUALS ""
+  MESSAGE "Audit query with no filters returns mixed results. Filter by decision (allow/block/force) or by tool name to get actionable data more efficiently."
+}

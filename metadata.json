@@ -1,0 +1,3 @@
+{
+  "description": "Security, safety, and efficiency rules for AI agents calling SigmaShake MCP (Model Context Protocol) server tools. Blocks rule injection attacks, API key exposure in audit logs, accidental hub publishing, and token-wasting query patterns."
+}

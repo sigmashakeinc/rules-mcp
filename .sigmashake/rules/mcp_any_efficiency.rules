@@ -1,0 +1,40 @@
+# mcp_any_efficiency.rules — Efficiency and observability rules for SigmaShake MCP tools.
+# Technology: mcp | Capability: any
+# Covers: status call tracking, rules list and get tracking, and audit query logging.
+# All rules use LOG to provide observability without interrupting the agent.
+
+rule log-status-call {
+  enabled true
+  priority 40
+  severity info
+  LOG any
+  IF tool EQUALS "sigmashake_status"
+  MESSAGE "Health check called. Status calls are cheap but frequent calls indicate the agent may be polling instead of trusting the connection. One status check per session is typically sufficient."
+}
+
+rule log-rules-list-call {
+  enabled true
+  priority 40
+  severity info
+  LOG any
+  IF tool EQUALS "sigmashake_rules_list"
+  MESSAGE "Rules list queried. The ruleset is static within a session — cache the result instead of re-fetching. If filtering by severity, consider fetching all rules once and filtering locally."
+}
+
+rule log-rules-get-call {
+  enabled true
+  priority 35
+  severity info
+  LOG any
+  IF tool EQUALS "sigmashake_rules_get"
+  MESSAGE "Individual rule fetched. If you need multiple rules, prefer sigmashake_rules_list with a filter over sequential sigmashake_rules_get calls — it saves round trips and context tokens."
+}
+
+rule log-audit-query {
+  enabled true
+  priority 30
+  severity info
+  LOG any
+  IF tool EQUALS "sigmashake_audit"
+  MESSAGE "Audit log queried. Audit results are point-in-time snapshots — avoid re-querying within the same reasoning step unless new eval calls have been made since the last query."
+}
