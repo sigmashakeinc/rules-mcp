@@ -7,22 +7,20 @@ rule ask-large-audit-query {
   enabled true
   priority 75
   severity warning
-  ASK any
+  LOG any
   IF tool EQUALS "sigmashake_audit" AND input.limit REGEX "^[5-9][0-9]$"
   OR tool EQUALS "sigmashake_audit" AND input.limit EQUALS "100"
   MESSAGE "Large audit query (limit >= 50) returns significant data that consumes context tokens. Most debugging tasks are served by the last 10-20 entries."
-  PROMPT "Do you need this many audit records? Start with limit=10 or limit=20 to check if the answer is in recent entries before requesting 50+."
 }
 
 rule ask-eval-empty-input {
   enabled true
   priority 70
   severity warning
-  ASK any
+  LOG any
   IF tool EQUALS "sigmashake_eval" AND input.tool EQUALS ""
   OR tool EQUALS "sigmashake_eval" AND input.input EQUALS "{}"
   MESSAGE "Eval called with empty tool name or empty input object. An eval with no tool or empty input will match no conditions and return a vacuous ALLOW — this is almost certainly a bug in the agent's tool call construction."
-  PROMPT "Is the eval input complete? Ensure both 'tool' and 'input' are populated with the actual tool call data to evaluate."
 }
 
 rule force-rule-id-format {
